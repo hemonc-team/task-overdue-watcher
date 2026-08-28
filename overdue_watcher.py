@@ -32,7 +32,11 @@ def _parse_args():
 
 
 def _load_config(args):
-    webhook = os.environ.get("BITRIX24_WEBHOOK_URL", "").strip().rstrip("/")
+    webhook = (
+        os.environ.get("BITRIX24_WEBHOOK_URL")
+        or os.environ.get("B24_WEBHOOK_URL")
+        or ""
+    ).strip().rstrip("/")
     if not webhook:
         print("ОШИБКА: задайте BITRIX24_WEBHOOK_URL", file=sys.stderr)
         sys.exit(2)
