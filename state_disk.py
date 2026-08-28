@@ -6,7 +6,9 @@ import os
 import sys
 import urllib.request
 
-WEBHOOK = os.environ.get("BITRIX24_WEBHOOK_URL", "").strip().rstrip("/")
+WEBHOOK = (
+    os.environ.get("BITRIX24_WEBHOOK_URL") or os.environ.get("B24_WEBHOOK_URL") or ""
+).strip().rstrip("/")
 FILE_ID = os.environ.get("BITRIX_DISK_STATE_FILE_ID", "").strip()
 STATE_FILE = os.environ.get("STATE_FILE", "state.json")
 
