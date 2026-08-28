@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+state.json
+data/
+run.log
+.run.lock
