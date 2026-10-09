@@ -42,6 +42,10 @@ def _load_config(args):
     except ValueError:
         print("ОШИБКА: WATCHER_USER_ID должен быть числом", file=sys.stderr)
         sys.exit(2)
+    task_scope = os.environ.get("TASK_SCOPE", "member").strip().lower()
+    if task_scope not in ("member", "all"):
+        print("ОШИБКА: TASK_SCOPE должен быть member или all", file=sys.stderr)
+        sys.exit(2)
     here = os.path.dirname(os.path.abspath(__file__))
     state_f = (
         args.state_file
@@ -52,6 +56,7 @@ def _load_config(args):
         "webhook": webhook + "/",
         "portal": portal,
         "user_id": user_id,
+        "task_scope": task_scope,
         "here": here,
         "state_f": state_f,
         "log_f": os.path.join(os.path.dirname(state_f), "run.log"),
@@ -181,6 +186,15 @@ def is_service(msg):
 
 def is_noise(msg):
     return is_bot(msg) or is_service(msg)
+
+
+def task_filter(extra, scope=None):
+    """Фильтр tasks.task.list. member — только задачи участника; all — без MEMBER."""
+    f = dict(extra)
+    use = CFG["task_scope"] if scope is None else scope
+    if use != "all":
+        f["MEMBER"] = CFG["user_id"]
+    return f
 
 
 def task_url(tid):
@@ -336,7 +350,7 @@ def _run():
     cand = paginate(
         "tasks.task.list",
         {
-            "filter": {"MEMBER": uid, "<DEADLINE": nows, "CLOSED_DATE": ""},
+            "filter": task_filter({"<DEADLINE": nows, "CLOSED_DATE": ""}),
             "select": [
                 "ID",
                 "TITLE",
@@ -457,7 +471,7 @@ def _run():
     open_tasks = paginate(
         "tasks.task.list",
         {
-            "filter": {"MEMBER": uid, "CLOSED_DATE": ""},
+            "filter": task_filter({"CLOSED_DATE": ""}),
             "select": ["ID", "TITLE", "STATUS", "DEADLINE", "CHAT_ID"],
         },
     )
@@ -476,9 +490,21 @@ def _run():
             f"клиент-контроль={len(xcheck)}; пропущены={sorted(missed)}; лишние={sorted(extra)}."
         )
 
+    # Домен 2 — только комменты владельца. Чужие открытые задачи не читаем:
+    # это лишние вызовы im.dialog и шум в отчёте.
+    if CFG["task_scope"] == "all":
+        d2_tasks = paginate(
+            "tasks.task.list",
+            {
+                "filter": task_filter({"CLOSED_DATE": ""}, scope="member"),
+                "select": ["ID", "TITLE", "STATUS", "CHAT_ID"],
+            },
+        )
+    else:
+        d2_tasks = open_tasks
     cutoff = now - datetime.timedelta(days=D2_DAYS)
     d2_scanned = 0
-    for t in open_tasks:
+    for t in d2_tasks:
         if str(t.get("status")) not in ("2", "3", "4"):
             continue
         tid = str(t.get("id"))
@@ -522,6 +548,7 @@ def _run():
     rep = build_report(report, seed, len(overdue), d2_scanned, now)
     logline(
         f"[{now.isoformat()}] mode={'seed' if seed else ('dry' if not do_post else 'live')} "
+        f"scope={CFG['task_scope']} "
         f"overdue={len(overdue)} pinged={len(report['pinged'])} "
         f"escalate={len(report['escalate'])} domain2={len(report['domain2'])} "
         f"self={len(report['self'])} capped={len(report['capped'])}"
@@ -538,8 +565,9 @@ def build_report(r, seed, n_over, d2_scanned, now):
     L.append(f"{hdr} — {now.strftime('%d.%m.%Y %H:%M')} МСК")
     for w in r.get("warn", []):
         L.append(f"‼️ {w}")
+    scope_label = "весь портал" if CFG["task_scope"] == "all" else "я участник"
     L.append(
-        f"Просрочено (я участник): {n_over} | пингов: {len(r['pinged'])} | "
+        f"Просрочено ({scope_label}): {n_over} | пингов: {len(r['pinged'])} | "
         f"эскалация: {len(r['escalate'])} | безответных комментов моих: {len(r['domain2'])}"
     )
     if r["pinged"]:

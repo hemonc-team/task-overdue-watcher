@@ -33,7 +33,7 @@ python3 overdue_watcher.py         # seed или live (по state.json)
 
 1. Репозиторий: `hemonc-team/task-overdue-watcher`, ветка `main`
 2. Расписание: `0 6 * * 1,4` (09:00 МСK = 06:00 UTC)
-3. Env: `BITRIX24_WEBHOOK_URL`, опционально `BITRIX_DISK_STATE_FILE_ID`
+3. Env в Cloud Environment: `BITRIX24_WEBHOOK_URL`, для всего портала `TASK_SCOPE=all` (вебхук администратора), опционально `BITRIX_DISK_STATE_FILE_ID`
 4. Первый прогон — с переносом старого `state.json` (см. миграцию в docs)
 
 ## Миграция с Cowork / Dropbox

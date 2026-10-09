@@ -6,7 +6,7 @@
 
 1. **Первый прогон = SEED** — без commentitem.add, иначе спам по бэклогу.
 2. **Write-through state** — после каждого пинга сразу `save_state`, иначе дубли (инцидент 20.07.2026).
-3. **Фильтр просрочки** — `MEMBER` + `<DEADLINE` + `CLOSED_DATE=""`; статус {2,3,4} на клиенте (мета-STATUS в фильтре ломает выборку).
+3. **Фильтр просрочки** — `<DEADLINE` + `CLOSED_DATE=""`; при `TASK_SCOPE=member` (по умолчанию) ещё `MEMBER`. Статус {2,3,4} на клиенте (мета-STATUS в фильтре ломает выборку). `all` не передаёт `MEMBER`; весь портал видит только вебхук администратора.
 4. **Комментарии задачи** — через `im.dialog.messages.get`, не legacy `task.commentitem.getlist`.
 5. **Self-ping** — RESPONSIBLE == WATCHER_USER_ID → не пинговать.
 6. **Потолок** — 6 безответных пингов → stop + эскалация.
