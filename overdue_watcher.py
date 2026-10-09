@@ -117,6 +117,10 @@ def paginate(method, params):
         p = dict(params)
         p["start"] = start
         r = call(method, p)
+        if isinstance(r, dict) and r.get("error"):
+            desc = r.get("error_description") or ""
+            print(f"ОШИБКА {method}: {r.get('error')} {desc}".strip(), file=sys.stderr)
+            sys.exit(1)
         res = r.get("result", {})
         tasks = res.get("tasks", res) if isinstance(res, dict) else res
         if not tasks:
@@ -215,6 +219,8 @@ def load_state():
 
 
 def save_state(st):
+    if CFG.get("dry"):
+        return
     st["last_run"] = datetime.datetime.now(MSK).isoformat()
     sf = CFG["state_f"]
     os.makedirs(os.path.dirname(os.path.abspath(sf)), exist_ok=True)
@@ -542,8 +548,9 @@ def _run():
             + ", ".join(sorted(set(DEPTH_WARN)))
             + " — причина/ответ могли остаться за горизонтом чтения"
         )
-    st["seeded"] = True
-    save_state(st)
+    if not CFG["dry"]:
+        st["seeded"] = True
+        save_state(st)
 
     rep = build_report(report, seed, len(overdue), d2_scanned, now)
     logline(

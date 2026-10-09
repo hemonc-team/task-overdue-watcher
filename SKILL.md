@@ -35,7 +35,7 @@ python3 state_disk.py download
 python3 overdue_watcher.py --dry
 ```
 
-Проверить stdout: число просроченных, предупреждения, режим seed/live.
+Проверить stdout: число просроченных, предупреждения, подпись «весь портал» или «я участник». `--dry` state не пишет и `seeded` не переключает. Ошибка REST (пустой `result` с `error`) завершает прогон с ненулевым кодом, а не отчётом «просрочено: 0».
 
 ### Шаг 2 — боевой прогон
 
@@ -43,7 +43,7 @@ python3 overdue_watcher.py --dry
 python3 overdue_watcher.py
 ```
 
-Скрипт сам выбирает режим: `seeded=false` → SEED (без commentitem.add), иначе LIVE.
+Скрипт сам выбирает режим: `seeded=false` → SEED (без commentitem.add), иначе LIVE. Первый боевой запуск после пустого state — всё ещё SEED, даже если перед ним был `--dry`.
 
 Флаги вручную: `--dry` (read-only), `--live` (форс боевой после seed).
 
