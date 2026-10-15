@@ -6,8 +6,8 @@
 
 | Переменная | Обязательна | Значение |
 |------------|-------------|----------|
-| `BITRIX24_WEBHOOK_URL` | да | Входящий webhook prod `laskov-partners` (vault Laskov-Clinic-Secrets) |
-| `WATCHER_USER_ID` | нет | UID владельца / кому отчёт. По умолчанию `1` |
+| `BITRIX24_WEBHOOK_URL` | да | Входящий webhook **Ласкова (UID 1)** на `laskov-partners` (vault). Не вебхук другого сотрудника |
+| `WATCHER_USER_ID` | да (prod) | `1` — Михаил Ласков: отчёт и логика контроля. Должен совпадать с UID в URL вебхука |
 | `TASK_SCOPE` | нет | `member` (по умолчанию) или `all`. См. §1.1 |
 | `BITRIX24_PORTAL` | нет | `https://laskov-partners.bitrix24.ru` |
 | `BITRIX_DISK_STATE_FILE_ID` | для cloud | ID файла `state.json` на Disk (см. §3) |
@@ -41,7 +41,7 @@ Scopes webhook: **task**, **im**, **user**, и **disk** (если state на Dis
 
 1. Automation на [cursor.com/automations](https://cursor.com/automations): репозиторий `hemonc-team/task-overdue-watcher`, ветка `main`, cron `0 6 * * 1,4`, инструкции — `SKILL.md`.
 2. У Automation выбран **Cloud Environment** (не «без окружения»). Иначе секреты в прогон не попадают: агент не видит `BITRIX24_WEBHOOK_URL`. Если окружение уже было и переменные пустые — открыть Automation, заново выбрать environment и сохранить.
-3. В этом environment задан секрет `BITRIX24_WEBHOOK_URL`. Для постоянного state — ещё `BITRIX_DISK_STATE_FILE_ID`. Для всего портала — `TASK_SCOPE=all` и вебхук администратора.
+3. Секреты: `BITRIX24_WEBHOOK_URL` от **UID 1** (Ласков), `WATCHER_USER_ID=1`, при необходимости `BITRIX_DISK_STATE_FILE_ID`, для всего портала — `TASK_SCOPE=all`.
 4. Исходящий доступ с агента до `laskov-partners.bitrix24.ru` разрешён (egress окружения).
 5. Первый прогон без перенесённого state — только SEED. Пинги начнутся со второго прогона, после `state_disk.py upload`.
 
@@ -119,6 +119,7 @@ python3 state_disk.py upload
 | «Просрочено: 0», а задачи есть | Фильтр MEMBER / мета-статус / вебхук не админ при `TASK_SCOPE=all` / ошибка REST, которую старый скрипт глотал | Смотреть строку «я участник» или «весь портал». Ошибка `tasks.task.list` теперь роняет прогон, а не рисует ноль |
 | Пустой SEED, следующий прогон сразу пингует | `--dry` раньше ставил `seeded=true` даже при нуле задач | `--dry` state не меняет. Ложный seed сбросить на `seeded: false` и `tasks: {}` |
 | В отчёте ошибка доступа на пинге | Вебхук не админ, а задача чужая | Перевыпустить вебхук от администратора |
+| Ошибка «вебхук от UID … WATCHER_USER_ID=1» | В секретах вебхук не Ласкова | Заменить `BITRIX24_WEBHOOK_URL` на входящий вебхук UID 1, оставить `WATCHER_USER_ID=1` |
 | Дубли пингов | Параллельный прогон / краш до save state | Проверить `.run.lock`; state upload после прогона |
 | SEED каждый раз | Нет Disk / не upload state | Настроить §3 |
 | `insufficient_scope` | Webhook без task/im | Пересоздать webhook с нужными scopes |

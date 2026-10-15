@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-task-overdue-watcher — надзиратель просроченных задач Bitrix24 + безответные комменты владельца вебхука.
+task-overdue-watcher — надзиратель просроченных задач Bitrix24 + безответные комменты персоны контроля.
 
 Конфиг через env (см. .env.example):
-  BITRIX24_WEBHOOK_URL — обязателен
+  BITRIX24_WEBHOOK_URL — обязателен (входящий вебхук того же пользователя, что WATCHER_USER_ID)
   BITRIX24_PORTAL, WATCHER_USER_ID, STATE_FILE — опционально
 
 Режимы:
@@ -38,7 +38,7 @@ def _load_config(args):
         sys.exit(2)
     portal = os.environ.get("BITRIX24_PORTAL", "https://laskov-partners.bitrix24.ru").rstrip("/")
     try:
-        user_id = int(os.environ.get("WATCHER_USER_ID", "1"))
+        user_id = int(os.environ.get("WATCHER_USER_ID", str(DEFAULT_WATCHER_USER_ID)))
     except ValueError:
         print("ОШИБКА: WATCHER_USER_ID должен быть числом", file=sys.stderr)
         sys.exit(2)
@@ -67,6 +67,8 @@ def _load_config(args):
 
 
 CFG = None  # заполняется в main()
+# Персона контроля на prod: Михаил Ласков (UID 1). Отчёт и домен 2 — ему; пинги — от его вебхука.
+DEFAULT_WATCHER_USER_ID = 1
 
 BOT_MARK = "⁣"
 BOT_TAG = "⁣[авто-контроль]"
@@ -611,6 +613,33 @@ def send_report(text):
         call("im.message.add", {"DIALOG_ID": str(uid), "MESSAGE": text})
 
 
+def validate_webhook_persona():
+    """Пинги в задаче идут от владельца вебхука; отчёт — на WATCHER_USER_ID. Должен быть один человек."""
+    persona = CFG["user_id"]
+    r = call("user.current")
+    if r.get("error"):
+        print(
+            f"ОШИБКА user.current: {r.get('error')} {r.get('error_description') or ''}".strip(),
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    try:
+        actor = int((r.get("result") or {}).get("ID"))
+    except (TypeError, ValueError):
+        print("ОШИБКА: user.current не вернул ID", file=sys.stderr)
+        sys.exit(2)
+    CFG["webhook_user_id"] = actor
+    if actor != persona:
+        print(
+            f"ОШИБКА: BITRIX24_WEBHOOK_URL выпущен от UID {actor}, "
+            f"а WATCHER_USER_ID={persona}. "
+            f"Чтобы отчёт и напоминания в чате задач шли от Ласкова (UID {DEFAULT_WATCHER_USER_ID}), "
+            f"в секретах Automation укажите его входящий вебхук и WATCHER_USER_ID={DEFAULT_WATCHER_USER_ID}.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+
+
 def acquire_lock():
     lf = CFG["lock_f"]
     if os.path.exists(lf):
@@ -651,6 +680,7 @@ def main():
         print("Прогон уже идёт (свежий .run.lock) — выходим, чтобы не задублировать пинги.")
         return None
     try:
+        validate_webhook_persona()
         return _run()
     finally:
         release_lock()
