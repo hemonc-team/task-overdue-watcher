@@ -616,7 +616,7 @@ def send_report(text):
 def validate_webhook_persona():
     """Пинги в задаче идут от владельца вебхука; отчёт — на WATCHER_USER_ID. Должен быть один человек."""
     persona = CFG["user_id"]
-    r = call("user.current")
+    r = call("user.current", {})
     if r.get("error"):
         print(
             f"ОШИБКА user.current: {r.get('error')} {r.get('error_description') or ''}".strip(),
